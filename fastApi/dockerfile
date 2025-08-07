@@ -1,0 +1,16 @@
+FROM python:3.9-slim
+
+WORKDIR /app
+
+COPY . /app/
+
+# 使用pip安装requirements.txt中列出的所有Python依赖包
+# --no-cache-dir: 禁用pip缓存，减小镜像体积
+# --upgrade: 升级到最新版本
+# -r /app/requirements.txt: 指定依赖文件路径
+# RUN pip install --no-cache-dir --upgrade -r /app/requirements.txt
+RUN pip install -r /app/requirements.txt
+# 
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80"]
+
+EXPOSE 80

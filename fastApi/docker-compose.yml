@@ -1,0 +1,48 @@
+version: '3.8'  #compose 版本
+
+services:
+  # MySQL 服务
+  mysql:
+    image: mysql:latest
+    container_name: mysql-container
+    restart: always  # 自动重启
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+    volumes:
+      - mysql-data:/var/lib/mysql  # 数据持久化
+    networks:
+      - fastapi-network
+    healthcheck:  # 检查 MySQL 是否启动完成
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "3306:3306"
+
+  # FastAPI 服务
+  fastapi:
+    build: .
+    container_name: fastapi-container
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_HOST=mysql-container  # 指向 MySQL 服务名
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+    depends_on:
+      mysql:
+        condition: service_healthy  # 等待 MySQL 健康后启动
+    networks:
+      - fastapi-network
+
+# 数据卷（持久化 MySQL 数据）
+volumes:
+  mysql-data:
+
+# 自定义网络
+networks:
+  fastapi-network:
+    driver: bridge
