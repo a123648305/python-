@@ -1,24 +1,13 @@
 import os
-from fastapi import FastAPI, HTTPException,status
+from fastapi import FastAPI, HTTPException,status,Depends
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 from typing import List
 from typing import Generic, TypeVar, Optional
 
-# # 导入自定义模块
-# import models
-# import schemas
-from database import SessionLocal, engine
-
-# 创建数据库表（首次运行时执行）
-# models.Base.metadata.create_all(bind=engine)
-# 依赖项：获取数据库会话（每个请求一个会话）
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()  # 请求结束后关闭会话
+# # 导入SQl模块
+from database import get_db,Session
+from models import TableItem
 
 # 初始化 FastAPI 应用
 app = FastAPI(title="物品管理 API", version="1.0")
@@ -49,17 +38,6 @@ fake_db: List[Item] = [
 ]
 
 
-async def download_file(FILE_PATH:str):
-    # 检查文件是否存在
-    if not os.path.exists(FILE_PATH):
-        return {"error": "文件不存在"}
-    
-    # 返回文件（自动处理 MIME 类型）
-    return FileResponse(
-        path=f"./static/{FILE_PATH}",
-        filename="custom-name.pdf",  # 下载时显示的文件名（可选）
-        media_type="application/pdf"  # 指定 MIME 类型（可选，自动推断）
-    )
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -78,24 +56,34 @@ async def root():
 
 # 路由：获取所有物品
 @app.get("/list", response_model=TypeResponse[List[Item]],status_code=200)
-async def read_items():
-    return TypeResponse(data=fake_db)
+async def read_items(page: int = 1, limit: int = 100, db:Session = Depends(get_db)):
+    products = db.query(TableItem).offset(page).limit(limit).all()
+    return TypeResponse(data=products)
 
 # 路由：创建新物品
 @app.post("/add_item", status_code=201)
-async def create_item(data: Item):
+async def create_item(data: Item,db:Session = Depends(get_db)):
     body = data.model_dump() # 将数据转为字典
-    res = next((u for u in fake_db if u["id"] == body["id"]), None)
-    if res:
-        return TypeResponse(code=status.HTTP_404_NOT_FOUND,message="物品已存在")
-    else:
-        fake_db.append(body)
-        return TypeResponse(message="物品创建成功")
+    db_product = TableItem(**body)  
+    db.add(db_product)  # 添加数据到数据库会话（此时还未真正写入数据库）
+    db.commit()      # 提交数据库会话，将数据真正写入到数据库中
+    db.refresh(db_product)  # 刷新实例以获取数据库生成的 ID
+
+    return TypeResponse(message="物品创建成功")
+
+
+    # res = next((u for u in fake_db if u["id"] == body["id"]), None)
+    # if res:
+    #     return TypeResponse(code=status.HTTP_404_NOT_FOUND,message="物品已存在")
+    # else:
+    #     fake_db.append(body)
+    #     return TypeResponse(message="物品创建成功")
      
 # 路由：根据索引获取单个物品
 @app.get("/query",response_model=TypeResponse[Item])
-async def read_item(id: int):
-    item = next((u for u in fake_db if u["id"] == id), None)
+async def read_item(id: int,db:Session = Depends(get_db)):
+    item = db.query(TableItem).filter(TableItem.id == id).first()
+    # item = next((u for u in fake_db if u["id"] == id), None)
     if item:
         return TypeResponse(data=item)
     else:
@@ -103,21 +91,31 @@ async def read_item(id: int):
     
 # 更新物品
 @app.post("/update/{item_id}",response_model=TypeResponse)
-async def update_item(item_id: int, data: Item):
-    item = next((u for u in fake_db if u["id"] == item_id), None)
+async def update_item(item_id: int, data: Item,db:Session = Depends(get_db)):
+
+    item = db.query(TableItem).filter(TableItem.id == item_id).first()
+    #item = next((u for u in fake_db if u["id"] == item_id), None)
     print(item,data)
     if item:
-        item.update(data)
+        # item.update(data)
+
+        for key, value in data.model_dump().items():
+            setattr(item, key, value)
+
+        db.commit()
+        db.refresh(item)
         return TypeResponse(message="物品更新成功")
     else:
         return TypeResponse(code=status.HTTP_404_NOT_FOUND,message="物品不存在")
     
 # 删除物品
 @app.delete("/delete/{item_id}",response_model=TypeResponse)
-async def delete_item(item_id: int):
-    item = next((u for u in fake_db if u["id"] == item_id), None)
+async def delete_item(item_id: int,db:Session = Depends(get_db)):
+    item = db.query(TableItem).filter(TableItem.id == item_id).first()
     if item:
-        fake_db.remove(item)
+        # fake_db.remove(item)
+        db.delete(item)
+        db.commit()
         return TypeResponse(message="删除成功")
     else:
         return TypeResponse(code=status.HTTP_404_NOT_FOUND,message="物品不存在")

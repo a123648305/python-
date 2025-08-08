@@ -1,4 +1,4 @@
-version: '3.8'  #compose 版本
+# version: '3.8'  #compose 版本
 
 services:
   # MySQL 服务
@@ -29,7 +29,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DB_HOST=mysql-container  # 指向 MySQL 服务名
+      - DB_HOST=mysql-container  # 容器内 指向 MySQL 服务名   
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
     depends_on:

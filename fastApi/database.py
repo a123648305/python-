@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker,Session
 from dotenv import load_dotenv
 import os
 
@@ -26,3 +26,17 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # 声明基类（所有模型继承此类）
 Base = declarative_base()
+
+
+
+# 创建数据库表
+Base.metadata.create_all(bind=engine)
+
+
+# 依赖项：获取数据库会话（每个请求一个会话）
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()  # 请求结束后关闭会话

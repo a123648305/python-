@@ -25,11 +25,46 @@
   - 3. 访问 API
     - 直接访问 `http://localhost:8000/items`
 
-
-+ 部署
+* ```fastapi 单部署~~~
   - 1. 保存依赖
     - `pip freeze > requirements.txt`
   - 2. 部署到 Docker
     - `docker build -t fastapi-demo .`
   - 3. 运行 Docker
     - `docker run -p 8000:8000 fastapi-demo`
+
+  ```
+
+* 一键 docker-compose 部署(fastApi + mysql)
+
+  - 1. 配置 docker-compose.yml 文件
+  - 2. 启动
+
+  ```bash
+  docker-compose up -d
+  ```
+
+* 配置 MySQL 允许远程连接
+  默认情况下，MySQL 可能只允许本地连接，需要配置允许远程访问：
+* 进入容器：
+
+```bash
+docker exec -it mysql-container bash
+```
+
+- 登录 MySQL：
+
+```bash
+mysql -u root -p
+
++ 输入你设置的 root 密码
++ 执行授权命令：
+#sql-- 允许root用户从任何主机连接
+ALTER USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY 'your_password';
+FLUSH PRIVILEGES;
+
+#如果你想限制特定 IP 访问，可以将 % 替换为具体 IP 地址
++ 退出 MySQL 和容器：
+exit  # 退出MySQL
+exit  # 退出容器
+```
